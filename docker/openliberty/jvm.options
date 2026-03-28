@@ -1,0 +1,22 @@
+# =============================================================================
+# JVM Options for Open Liberty
+# =============================================================================
+# Tune these values based on your Kubernetes resource limits.
+# Container-aware JVM settings for running in Kubernetes.
+# =============================================================================
+
+# Memory settings - adjust based on K8s resource limits
+# These use container-aware flags so JVM respects cgroup memory limits
+-XX:+UseContainerSupport
+-XX:MaxRAMPercentage=75.0
+-XX:InitialRAMPercentage=50.0
+
+# GC tuning for containerized workloads
+-XX:+IdleTuningGcOnIdle
+-XX:IdleTuningMinIdleWaitTime=180
+
+# Enable shared class cache for faster startup
+-Xshareclasses:cacheDir=/opt/ol/wlp/.classCache,enableBCI
+
+# Timezone (adjust as needed)
+-Duser.timezone=UTC

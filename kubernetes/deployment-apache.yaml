@@ -1,0 +1,97 @@
+##############################################################################
+# Deployment - Apache2 Web Layer
+##############################################################################
+# Manages the Apache2 reverse proxy pods that sit in front of Open Liberty.
+# Receives traffic from the Ingress controller and forwards to Open Liberty.
+##############################################################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apache-deployment
+  namespace: app-migration
+  labels:
+    app.kubernetes.io/name: apache
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: azure-migration
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: apache
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: apache
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: azure-migration
+    spec:
+      # Pod anti-affinity to spread across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - apache
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: apache
+          # Replace <acr-name> with your Azure Container Registry name
+          image: <acr-name>.azurecr.io/web-apache:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: apache-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          # Liveness probe - restart if unhealthy
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness probe - remove from service if not ready
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Startup probe - allow slow starts
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+      # Graceful shutdown
+      terminationGracePeriodSeconds: 30

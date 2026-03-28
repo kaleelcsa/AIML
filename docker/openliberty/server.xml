@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ==========================================================================
+     Open Liberty Server Configuration
+     ==========================================================================
+     This configuration sets up:
+       - Jakarta EE / Java EE features for web applications
+       - PostgreSQL datasource connection to Azure Database for PostgreSQL
+       - Health check and metrics endpoints
+       - Logging configuration
+     ========================================================================== -->
+<server description="Open Liberty Application Server">
+
+    <!-- Enable features -->
+    <featureManager>
+        <!-- Web application features -->
+        <feature>webProfile-10.0</feature>
+        <!-- Health check endpoint at /health -->
+        <feature>mpHealth-4.0</feature>
+        <!-- Metrics endpoint at /metrics -->
+        <feature>mpMetrics-5.0</feature>
+        <!-- MicroProfile Config for externalized configuration -->
+        <feature>mpConfig-3.1</feature>
+        <!-- JDBC connectivity -->
+        <feature>jdbc-4.3</feature>
+        <!-- Connection pooling -->
+        <feature>connectionManager-1.0</feature>
+        <!-- JSON processing -->
+        <feature>jsonb-3.0</feature>
+        <feature>jsonp-2.1</feature>
+        <!-- CDI -->
+        <feature>cdi-4.0</feature>
+        <!-- REST services -->
+        <feature>restfulWS-3.1</feature>
+        <feature>restfulWSClient-3.1</feature>
+    </featureManager>
+
+    <!-- HTTP endpoint configuration -->
+    <httpEndpoint id="defaultHttpEndpoint"
+                  host="*"
+                  httpPort="9080"
+                  httpsPort="9443">
+        <accessLogging filepath="${server.output.dir}/logs/access.log"
+                       logFormat="%h %u %t &quot;%r&quot; %s %b %D" />
+    </httpEndpoint>
+
+    <!-- PostgreSQL JDBC Driver Library -->
+    <library id="postgresLib">
+        <fileset dir="/opt/ol/wlp/lib" includes="postgresql-jdbc.jar"/>
+    </library>
+
+    <!-- ======================================================================
+         Azure Database for PostgreSQL DataSource
+         ======================================================================
+         Connection details are injected via environment variables from
+         Kubernetes Secrets and ConfigMaps:
+           DB_HOST     - PostgreSQL server hostname
+           DB_PORT     - PostgreSQL port (default: 5432)
+           DB_NAME     - Database name
+           DB_USER     - Database username
+           DB_PASSWORD - Database password
+         ====================================================================== -->
+    <dataSource id="DefaultDataSource" jndiName="jdbc/appDB" type="javax.sql.ConnectionPoolDataSource">
+        <jdbcDriver libraryRef="postgresLib"/>
+        <properties.postgresql
+            serverName="${env.DB_HOST}"
+            portNumber="${env.DB_PORT}"
+            databaseName="${env.DB_NAME}"
+            user="${env.DB_USER}"
+            password="${env.DB_PASSWORD}"
+            ssl="true"
+            sslmode="require" />
+        <connectionManager
+            minPoolSize="5"
+            maxPoolSize="20"
+            connectionTimeout="30s"
+            maxIdleTime="10m"
+            purgePolicy="ValidateAllConnections" />
+    </dataSource>
+
+    <!-- Application deployment -->
+    <webApplication id="app" location="app.war" contextRoot="/">
+        <classloader commonLibraryRef="postgresLib"/>
+    </webApplication>
+
+    <!-- Logging configuration -->
+    <logging
+        consoleLogLevel="INFO"
+        consoleFormat="json"
+        consoleSource="message,trace,accessLog,ffdc"
+        traceSpecification="*=info" />
+
+</server>

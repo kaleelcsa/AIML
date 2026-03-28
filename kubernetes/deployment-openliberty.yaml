@@ -1,0 +1,114 @@
+##############################################################################
+# Deployment - Open Liberty Application Layer
+##############################################################################
+# Manages the Open Liberty application server pods.
+# Connects to Azure Database for PostgreSQL via environment variables
+# injected from ConfigMap and Secret resources.
+##############################################################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openliberty-deployment
+  namespace: app-migration
+  labels:
+    app.kubernetes.io/name: openliberty
+    app.kubernetes.io/component: app
+    app.kubernetes.io/part-of: azure-migration
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openliberty
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openliberty
+        app.kubernetes.io/component: app
+        app.kubernetes.io/part-of: azure-migration
+    spec:
+      # Pod anti-affinity to spread across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - openliberty
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: openliberty
+          # Replace <acr-name> with your Azure Container Registry name
+          image: <acr-name>.azurecr.io/app-openliberty:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9080
+              name: http
+              protocol: TCP
+            - containerPort: 9443
+              name: https
+              protocol: TCP
+          # Non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: openliberty-config
+          # Sensitive credentials from Secret
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          # Liveness probe - restart if unhealthy
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness probe - remove from service if not ready
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Startup probe - Open Liberty can take time to start
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: 9080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+      # Graceful shutdown - allow in-flight requests to complete
+      terminationGracePeriodSeconds: 60

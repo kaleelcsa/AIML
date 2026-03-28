@@ -1,0 +1,20 @@
+##############################################################################
+# ConfigMap - Apache2 Web Layer Configuration
+##############################################################################
+# Stores non-sensitive configuration for the Apache reverse proxy.
+# BACKEND_HOST points to the Open Liberty Kubernetes Service name.
+##############################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-config
+  namespace: app-migration
+  labels:
+    app.kubernetes.io/name: apache
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: azure-migration
+data:
+  # Open Liberty service name within the cluster
+  BACKEND_HOST: "openliberty-service"
+  # Open Liberty HTTP port
+  BACKEND_PORT: "9080"

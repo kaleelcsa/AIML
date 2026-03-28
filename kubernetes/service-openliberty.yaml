@@ -1,0 +1,29 @@
+##############################################################################
+# Service - Open Liberty Application Layer
+##############################################################################
+# Exposes the Open Liberty pods as a ClusterIP service within the cluster.
+# Apache2 pods use this service name (openliberty-service) as the
+# reverse proxy backend target.
+##############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: openliberty-service
+  namespace: app-migration
+  labels:
+    app.kubernetes.io/name: openliberty
+    app.kubernetes.io/component: app
+    app.kubernetes.io/part-of: azure-migration
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: openliberty
+  ports:
+    - name: http
+      port: 9080
+      targetPort: 9080
+      protocol: TCP
+    - name: https
+      port: 9443
+      targetPort: 9443
+      protocol: TCP

@@ -1,0 +1,90 @@
+##############################################################################
+# NetworkPolicy - Restrict traffic between layers
+##############################################################################
+# Enforces the 3-tier architecture at the network level:
+#   - Apache (web) can only receive traffic from Ingress
+#   - Open Liberty (app) can only receive traffic from Apache (web)
+#   - Egress to Azure PostgreSQL is allowed from Open Liberty only
+##############################################################################
+
+---
+# Allow Ingress traffic to Apache only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apache-network-policy
+  namespace: app-migration
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: apache
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from Ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    # Allow traffic to Open Liberty pods
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openliberty
+      ports:
+        - protocol: TCP
+          port: 9080
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Allow traffic to Open Liberty only from Apache
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openliberty-network-policy
+  namespace: app-migration
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openliberty
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic only from Apache pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: apache
+      ports:
+        - protocol: TCP
+          port: 9080
+  egress:
+    # Allow traffic to Azure PostgreSQL (port 5432)
+    - ports:
+        - protocol: TCP
+          port: 5432
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS egress (for external API calls if needed)
+    - ports:
+        - protocol: TCP
+          port: 443

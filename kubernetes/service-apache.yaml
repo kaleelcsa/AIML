@@ -1,0 +1,24 @@
+##############################################################################
+# Service - Apache2 Web Layer
+##############################################################################
+# Exposes the Apache2 pods as a ClusterIP service within the cluster.
+# The Ingress controller routes external traffic to this service.
+##############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache-service
+  namespace: app-migration
+  labels:
+    app.kubernetes.io/name: apache
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: azure-migration
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: apache
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

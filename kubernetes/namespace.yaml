@@ -1,0 +1,10 @@
+##############################################################################
+# Namespace - Isolates the application resources in the cluster
+##############################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-migration
+  labels:
+    app.kubernetes.io/part-of: azure-migration
+    environment: production

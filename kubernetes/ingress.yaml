@@ -1,0 +1,50 @@
+##############################################################################
+# Ingress - External Access to the Application
+##############################################################################
+# Routes external HTTP/HTTPS traffic to the Apache2 web layer.
+# Uses NGINX Ingress Controller (default for AKS).
+#
+# Prerequisites:
+#   1. Install NGINX Ingress Controller on AKS:
+#      kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.6/deploy/static/provider/cloud/deploy.yaml
+#
+#   2. For TLS, install cert-manager:
+#      kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+##############################################################################
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: app-migration
+  labels:
+    app.kubernetes.io/name: app-ingress
+    app.kubernetes.io/part-of: azure-migration
+  annotations:
+    # NGINX Ingress Controller annotations
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # Rate limiting (optional)
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    # Uncomment below for TLS with cert-manager
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  # Uncomment for TLS
+  # tls:
+  #   - hosts:
+  #       - your-domain.com
+  #     secretName: app-tls-secret
+  rules:
+    # Replace with your actual domain name
+    - host: your-domain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: apache-service
+                port:
+                  number: 80
